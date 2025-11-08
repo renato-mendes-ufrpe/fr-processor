@@ -93,6 +93,23 @@ public class Config {
         String checkpointStr = System.getProperty("CHECKPOINT_INTERVAL",
                               System.getenv().getOrDefault("CHECKPOINT_INTERVAL", "5"));
         CHECKPOINT_INTERVAL = Integer.parseInt(checkpointStr);
+        
+        // RAG configurations (chunking and retrieval)
+        String segmentSizeStr = System.getProperty("MAX_SEGMENT_SIZE_IN_TOKENS",
+                               System.getenv().getOrDefault("MAX_SEGMENT_SIZE_IN_TOKENS", "1200"));
+        MAX_SEGMENT_SIZE_IN_TOKENS = Integer.parseInt(segmentSizeStr);
+        
+        String overlapStr = System.getProperty("SEGMENT_OVERLAP_IN_TOKENS",
+                           System.getenv().getOrDefault("SEGMENT_OVERLAP_IN_TOKENS", "200"));
+        SEGMENT_OVERLAP_IN_TOKENS = Integer.parseInt(overlapStr);
+        
+        String maxResultsStr = System.getProperty("MAX_RESULTS_FOR_RETRIEVAL",
+                              System.getenv().getOrDefault("MAX_RESULTS_FOR_RETRIEVAL", "15"));
+        MAX_RESULTS_FOR_RETRIEVAL = Integer.parseInt(maxResultsStr);
+        
+        String minScoreStr = System.getProperty("MIN_SCORE_FOR_RETRIEVAL",
+                            System.getenv().getOrDefault("MIN_SCORE_FOR_RETRIEVAL", "0.60"));
+        MIN_SCORE_FOR_RETRIEVAL = Double.parseDouble(minScoreStr);
     }
     
     // ========================================
@@ -108,10 +125,10 @@ public class Config {
      * Para documentos financeiros complexos (com tabelas, valores, seções):
      * - Recomendado: 1000-1500 tokens (permite capturar tabelas completas)
      * 
-     * AJUSTADO: 1200 tokens (~900 palavras, ~6 parágrafos)
-     * Motivo: Formulários de Referência têm tabelas e seções que não devem ser fragmentadas
+     * Padrão: 1200 tokens (~900 palavras, ~6 parágrafos)
+     * Configurável via .env: MAX_SEGMENT_SIZE_IN_TOKENS
      */
-    public static final int MAX_SEGMENT_SIZE_IN_TOKENS = 1200;
+    public static final int MAX_SEGMENT_SIZE_IN_TOKENS;
     
     /**
      * Quantidade de tokens que se sobrepõem entre chunks consecutivos.
@@ -119,21 +136,20 @@ public class Config {
      * Overlap ajuda a não perder contexto nas divisões.
      * Recomendado: 10-20% do tamanho do chunk
      * 
-     * AJUSTADO: 200 tokens (~16% de 1200)
-     * Motivo: Garante que tabelas e valores numéricos não sejam cortados
+     * Padrão: 200 tokens (~16% de 1200)
+     * Configurável via .env: SEGMENT_OVERLAP_IN_TOKENS
      */
-    public static final int SEGMENT_OVERLAP_IN_TOKENS = 200;
+    public static final int SEGMENT_OVERLAP_IN_TOKENS;
     
     /**
      * Quantidade máxima de chunks a serem recuperados na busca por similaridade.
      * 
      * Mais resultados = mais contexto, mas prompt maior e mais caro
      * 
-     * AJUSTADO: 15 resultados
-     * Motivo: Documentos grandes (1832 chunks) precisam buscar mais para encontrar
-     *         informações específicas em seções como "7.3" (tabelas de membros)
+     * Padrão: 15 resultados
+     * Configurável via .env: MAX_RESULTS_FOR_RETRIEVAL
      */
-    public static final int MAX_RESULTS_FOR_RETRIEVAL = 15;
+    public static final int MAX_RESULTS_FOR_RETRIEVAL;
     
     /**
      * Score mínimo de similaridade para considerar um chunk relevante.
@@ -142,11 +158,10 @@ public class Config {
      * Score muito alto = pode não encontrar nada
      * Score muito baixo = pode trazer contexto irrelevante
      * 
-     * AJUSTADO: 0.60
-     * Motivo: Tabelas com estrutura específica (7.3) podem ter score mais baixo
-     *         mesmo contendo a informação correta
+     * Padrão: 0.60
+     * Configurável via .env: MIN_SCORE_FOR_RETRIEVAL
      */
-    public static final double MIN_SCORE_FOR_RETRIEVAL = 0.60;
+    public static final double MIN_SCORE_FOR_RETRIEVAL;
     
     // ========================================
     // CAMINHOS DE ARQUIVOS
