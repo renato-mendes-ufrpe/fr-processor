@@ -105,7 +105,7 @@ public class CsvQuestionReader {
     /**
      * Faz parse de uma linha do CSV.
      * 
-     * Formato: Nº;Dificuldade;Questão;Onde?;Como Preencher?;OBSERVAÇÕES
+     * Formato: Nº;Dificuldade;Questão;Onde?;Como Preencher?;OBSERVAÇÕES;Tipo
      * 
      * @param line Linha completa do CSV
      * @return Question ou null se houver erro
@@ -114,7 +114,7 @@ public class CsvQuestionReader {
         try {
             List<String> fields = splitCsvLine(line);
             
-            if (fields.size() < 6) {
+            if (fields.size() < 7) {
                 System.err.println("⚠️ Linha com campos insuficientes: " + line.substring(0, Math.min(50, line.length())));
                 return null;
             }
@@ -126,6 +126,7 @@ public class CsvQuestionReader {
             question.setOnde(cleanField(fields.get(3)));
             question.setComoPreencher(cleanField(fields.get(4)));
             question.setObservacoes(cleanField(fields.get(5)));
+            question.setTipo(parseTipoQuestao(cleanField(fields.get(6))));
             
             return question;
             
@@ -206,6 +207,25 @@ public class CsvQuestionReader {
             return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
             return 0;
+        }
+    }
+    
+    /**
+     * Parse do tipo de questão.
+     * 
+     * @param value String com o tipo (MONETARIA, SIM_NAO, etc)
+     * @return TipoQuestao ou TEXTO_ESPECIFICO como padrão
+     */
+    private com.example.rag.automation.model.TipoQuestao parseTipoQuestao(String value) {
+        if (value == null || value.isEmpty()) {
+            return com.example.rag.automation.model.TipoQuestao.TEXTO_ESPECIFICO;
+        }
+        
+        try {
+            return com.example.rag.automation.model.TipoQuestao.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            System.err.println("⚠️ Tipo de questão inválido: " + value + ". Usando TEXTO_ESPECIFICO como padrão.");
+            return com.example.rag.automation.model.TipoQuestao.TEXTO_ESPECIFICO;
         }
     }
 }

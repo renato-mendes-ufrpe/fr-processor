@@ -48,6 +48,32 @@ public class Config {
      */
     public static final String GEMINI_MODEL;
     
+    /**
+     * Delay entre requisições para a API do Gemini (em milissegundos).
+     * 
+     * Limites do Free Tier (https://ai.google.dev/gemini-api/docs/rate-limits):
+     * - Gemini 2.5 Flash: 10 RPM (Requests Per Minute)
+     * - Gemini 2.5 Pro: 2 RPM
+     * 
+     * Valores recomendados:
+     * - Free Tier Flash: 6000ms (6s) = 10 requests/min com margem de segurança
+     * - Free Tier Pro: 30000ms (30s) = 2 requests/min
+     * - Nível 1 (pago): 100ms ou menos
+     * 
+     * Padrão: 6000ms (adequado para Free Tier do Flash)
+     */
+    public static final long REQUEST_DELAY_MS;
+    
+    /**
+     * Intervalo para salvar checkpoint do processamento.
+     * 
+     * A cada N questões processadas, o sistema salva o progresso em arquivo CSV.
+     * Útil para retomar o processamento em caso de erro ou interrupção.
+     * 
+     * Padrão: 5 questões
+     */
+    public static final int CHECKPOINT_INTERVAL;
+    
     // Bloco estático que executa ao carregar a classe
     static {
         // Primeiro, tenta carregar o arquivo .env
@@ -58,6 +84,15 @@ public class Config {
                         System.getenv().getOrDefault("GEMINI_API_KEY", ""));
         GEMINI_MODEL = System.getProperty("GEMINI_MODEL",
                       System.getenv().getOrDefault("GEMINI_MODEL", "gemini-2.5-flash"));
+        
+        // Rate limiting configurations
+        String delayStr = System.getProperty("REQUEST_DELAY_MS",
+                         System.getenv().getOrDefault("REQUEST_DELAY_MS", "6000"));
+        REQUEST_DELAY_MS = Long.parseLong(delayStr);
+        
+        String checkpointStr = System.getProperty("CHECKPOINT_INTERVAL",
+                              System.getenv().getOrDefault("CHECKPOINT_INTERVAL", "5"));
+        CHECKPOINT_INTERVAL = Integer.parseInt(checkpointStr);
     }
     
     // ========================================
@@ -94,11 +129,11 @@ public class Config {
      * 
      * Mais resultados = mais contexto, mas prompt maior e mais caro
      * 
-     * AJUSTADO: 10 resultados
+     * AJUSTADO: 15 resultados
      * Motivo: Documentos grandes (1832 chunks) precisam buscar mais para encontrar
-     *         informações específicas em seções como "2.1.h"
+     *         informações específicas em seções como "7.3" (tabelas de membros)
      */
-    public static final int MAX_RESULTS_FOR_RETRIEVAL = 10;
+    public static final int MAX_RESULTS_FOR_RETRIEVAL = 15;
     
     /**
      * Score mínimo de similaridade para considerar um chunk relevante.
@@ -107,11 +142,11 @@ public class Config {
      * Score muito alto = pode não encontrar nada
      * Score muito baixo = pode trazer contexto irrelevante
      * 
-     * AJUSTADO: 0.65
-     * Motivo: Busca por informações específicas (valores numéricos) pode ter
-     *         score mais baixo que busca conceitual
+     * AJUSTADO: 0.60
+     * Motivo: Tabelas com estrutura específica (7.3) podem ter score mais baixo
+     *         mesmo contendo a informação correta
      */
-    public static final double MIN_SCORE_FOR_RETRIEVAL = 0.65;
+    public static final double MIN_SCORE_FOR_RETRIEVAL = 0.60;
     
     // ========================================
     // CAMINHOS DE ARQUIVOS
@@ -174,6 +209,13 @@ public class Config {
         
         if (isGeminiConfigured()) {
             System.out.println("   Gemini: ✅ Configurado (" + GEMINI_MODEL + ")");
+            System.out.println("   Rate Limiting:");
+            System.out.println("      • Delay entre requests: " + REQUEST_DELAY_MS + "ms (" + (REQUEST_DELAY_MS/1000.0) + "s)");
+            System.out.println("      • Checkpoint a cada: " + CHECKPOINT_INTERVAL + " questões");
+            
+            // Calcular e mostrar taxa máxima
+            double maxRequestsPerMinute = 60000.0 / REQUEST_DELAY_MS;
+            System.out.println("      • Taxa máxima: ~" + String.format("%.1f", maxRequestsPerMinute) + " requests/min");
         } else {
             System.out.println("   Gemini: ⚠️  Não configurado (apenas retrieval)");
             System.out.println("   💡 Para habilitar Gemini: configure GEMINI_API_KEY no arquivo .env");

@@ -156,6 +156,10 @@ models/
 data/test/
 data/temp/
 
+# Logs de execução
+output/execution-log.txt
+output/*.log
+
 # ===================================
 # Build e Relatórios
 # ===================================

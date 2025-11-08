@@ -4,7 +4,7 @@ package com.example.rag.automation.model;
  * Representa uma questão do Guia de Coleta.
  * 
  * Estrutura do CSV:
- * Nº;Dificuldade;Questão;Onde?;Como Preencher?;OBSERVAÇÕES
+ * Nº;Dificuldade;Questão;Onde?;Como Preencher?;OBSERVAÇÕES;Tipo
  */
 public class Question {
     
@@ -14,18 +14,20 @@ public class Question {
     private String onde;
     private String comoPreencher;
     private String observacoes;
+    private TipoQuestao tipo;
     
     public Question() {
     }
     
     public Question(int numero, String dificuldade, String questao, 
-                    String onde, String comoPreencher, String observacoes) {
+                    String onde, String comoPreencher, String observacoes, TipoQuestao tipo) {
         this.numero = numero;
         this.dificuldade = dificuldade;
         this.questao = questao;
         this.onde = onde;
         this.comoPreencher = comoPreencher;
         this.observacoes = observacoes;
+        this.tipo = tipo;
     }
     
     // Getters e Setters
@@ -78,6 +80,14 @@ public class Question {
         this.observacoes = observacoes;
     }
     
+    public TipoQuestao getTipo() {
+        return tipo;
+    }
+    
+    public void setTipo(TipoQuestao tipo) {
+        this.tipo = tipo;
+    }
+    
     @Override
     public String toString() {
         return "Question{" +
@@ -85,6 +95,7 @@ public class Question {
                 ", dificuldade='" + dificuldade + '\'' +
                 ", questao='" + questao + '\'' +
                 ", onde='" + onde + '\'' +
+                ", tipo=" + tipo +
                 '}';
     }
 }

@@ -11,7 +11,6 @@ import com.example.rag.retrieval.RagQueryEngine;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 
 /**
  * Sistema de Processamento Automatizado de Formulários de Referência (FR).
@@ -38,12 +37,31 @@ import java.nio.file.StandardOpenOption;
  * │   └── Pós-processar resposta (formatação, multiplicação monetária)
  * └── 2.3 Salvar respostas em output/respostas.csv
  * 
- * QUESTÕES PROCESSADAS:
- * - Receita líquida da empresa
- * - Lucro líquido da empresa
- * - Firma de auditoria independente
- * - Gastos anuais com auditoria
- * - Gastos com serviços adicionais de auditoria
+ * QUESTÕES PROCESSADAS (24 questões):
+ * 1. Receita líquida da empresa
+ * 2. Lucro líquido da empresa
+ * 3. Firma de auditoria independente
+ * 4. Gastos anuais com auditoria
+ * 5. Gastos com serviços adicionais de auditoria
+ * 6. Política de gerenciamento de riscos
+ * 7. Existência de auditoria interna
+ * 8. Sistema de controles internos adequado
+ * 9. Deficiências/recomendações sobre controles internos
+ * 10. Divulgação de informações ASG
+ * 11. Conselho Fiscal instalado
+ * 12. Quantidade de Comitês do Conselho de Administração
+ * 13. Regras de conflitos de interesses
+ * 14. Membros do Conselho de Administração
+ * 15. Mulheres no Conselho de Administração
+ * 16. Conselheiros externos
+ * 17. Conselheiros independentes
+ * 18. Conselheiros executivos
+ * 19. Membros do Comitê de Auditoria
+ * 20. Membros do Comitê de Auditoria que são conselheiros
+ * 21. Membros do Comitê de Auditoria que são conselheiros independentes
+ * 22. Comitê de Auditoria coordenado por conselheiro independente
+ * 23. Seguro D&O
+ * 24. Casos de desvios/fraudes
  * 
  * REQUISITOS:
  * - Java 21 ou superior
@@ -59,7 +77,7 @@ import java.nio.file.StandardOpenOption;
  * PERFORMANCE:
  * - Indexação: ~10 segundos para 200 páginas (chunks maiores)
  * - Processamento: ~8 segundos por questão (RAG + Gemini)
- * - Total: ~50 segundos para 5 questões
+ * - Total: ~200 segundos (~3min20s) para 24 questões
  */
 public class RagApplication {
     
@@ -124,7 +142,7 @@ public class RagApplication {
      */
     private static void runCsvQuestionMode(RagQueryEngine queryEngine) {
         System.out.println("\n" + "=".repeat(80));
-        System.out.println("📊 MODO PROCESSAMENTO CSV - Questões 2 a 6");
+        System.out.println("📊 MODO PROCESSAMENTO CSV - 24 Questões do FR");
         System.out.println("=".repeat(80));
         
         String csvPath = "Guia de Coleta.csv";
@@ -140,9 +158,9 @@ public class RagApplication {
             // Configuração
             String companyName = "Ambipar Participações e Empreendimentos S.A.";
             
-            // Processar as 5 primeiras questões do CSV (índices 0 a 4)
-            // que correspondem aos números: 2, 3, 5, 6, 8
-            int numQuestionsToProcess = 5;
+            // Processar as 24 primeiras questões do CSV (índices 0 a 23)
+            // que correspondem aos números: 2, 3, 5, 6, 8, 10, 14, 15, 16, 18, 19, 23, 27, 30, 31, 32, 33, 34, 38, 39, 40, 41, 47, 63
+            int numQuestionsToProcess = 24;
             
             System.out.println("🏢 Empresa: " + companyName);
             System.out.println("📋 Questões a processar: " + numQuestionsToProcess + " primeiras do CSV");
@@ -153,6 +171,10 @@ public class RagApplication {
             
             // Criar objeto de resposta
             CompanyResponse response = new CompanyResponse(companyName);
+            
+            // Preparar path de output
+            Path outputPath = Path.of("output/respostas.csv");
+            Files.createDirectories(outputPath.getParent());
             
             // Processar cada questão por índice (sequência no CSV)
             for (int index = 0; index < numQuestionsToProcess; index++) {
@@ -186,26 +208,26 @@ public class RagApplication {
                     response.setResposta(question.getNumero(), "ERRO: " + e.getMessage());
                 }
                 
-                // Pequena pausa entre questões para não sobrecarregar API
+                // CHECKPOINT: Salvar progresso periodicamente
+                if ((index + 1) % Config.CHECKPOINT_INTERVAL == 0) {
+                    System.out.println("\n💾 Checkpoint: Salvando progresso (" + (index + 1) + " questões processadas)...");
+                    saveProgressToFile(response, outputPath);
+                }
+                
+                // RATE LIMITING: Delay entre requisições para não exceder limites da API
                 if (index < numQuestionsToProcess - 1) {
-                    Thread.sleep(1000);
+                    long delayMs = Config.REQUEST_DELAY_MS;
+                    System.out.println("⏳ Aguardando " + (delayMs/1000.0) + "s antes da próxima questão (rate limiting)...");
+                    Thread.sleep(delayMs);
                 }
             }
             
-            // Salvar em CSV
-            Path outputPath = Path.of("output/respostas.csv");
-            
+            // Salvar resultado final
             System.out.println("\n" + "=".repeat(80));
-            System.out.println("💾 Salvando resultados...");
+            System.out.println("💾 Salvando resultados finais...");
             System.out.println("=".repeat(80));
             
-            // Criar arquivo com cabeçalho
-            Files.writeString(outputPath, CompanyResponse.csvHeader() + "\n");
-            
-            // Adicionar resposta
-            Files.writeString(outputPath, 
-                    response.toCsvLine() + "\n", 
-                    StandardOpenOption.APPEND);
+            saveProgressToFile(response, outputPath);
             
             System.out.println("\n✅ Resposta salva em: " + outputPath.toAbsolutePath());
             
@@ -228,6 +250,33 @@ public class RagApplication {
             System.err.println("❌ Erro: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+    
+    /**
+     * Salva o progresso atual em arquivo CSV com codificação UTF-8 BOM.
+     * 
+     * Este método é usado tanto para checkpoints quanto para salvar o resultado final.
+     * Sobrescreve o arquivo existente com o estado atual das respostas.
+     * 
+     * UTF-8 com BOM é necessário para que o Excel no macOS/Windows exiba corretamente
+     * caracteres especiais (acentos, cedilha, etc).
+     * 
+     * @param response Objeto com as respostas coletadas até o momento
+     * @param outputPath Caminho do arquivo CSV de saída
+     * @throws IOException Se houver erro ao escrever o arquivo
+     */
+    private static void saveProgressToFile(CompanyResponse response, Path outputPath) throws IOException {
+        // BOM (Byte Order Mark) para UTF-8 - indica ao Excel que o arquivo é UTF-8
+        byte[] bom = new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+        
+        // Criar conteúdo completo do CSV
+        String content = CompanyResponse.csvHeader() + "\n" + response.toCsvLine() + "\n";
+        
+        // Escrever BOM + conteúdo em UTF-8
+        java.io.FileOutputStream fos = new java.io.FileOutputStream(outputPath.toFile());
+        fos.write(bom);
+        fos.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        fos.close();
     }
     
     /**
