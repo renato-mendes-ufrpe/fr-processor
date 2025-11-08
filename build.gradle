@@ -1,0 +1,55 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.example.rag'
+version = '1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+application {
+    mainClass = 'com.example.rag.RagApplication'
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    langchain4jVersion = '1.8.0'
+    langchain4jBetaVersion = '1.8.0-beta15'
+}
+
+dependencies {
+    implementation "dev.langchain4j:langchain4j:${langchain4jVersion}"
+    implementation "dev.langchain4j:langchain4j-easy-rag:${langchain4jBetaVersion}"
+    implementation "dev.langchain4j:langchain4j-document-parser-apache-tika:${langchain4jBetaVersion}"
+    implementation "dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:${langchain4jBetaVersion}"
+    
+    // Google Gemini via API REST (não usa Vertex AI)
+    implementation "dev.langchain4j:langchain4j-google-ai-gemini:${langchain4jVersion}"
+    
+    implementation "org.slf4j:slf4j-simple:2.0.9"
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Configurar encoding
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+// Task para executar a aplicação
+task runApp(type: JavaExec) {
+    group = 'application'
+    description = 'Run the RAG application'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.rag.RagApplication'
+}
