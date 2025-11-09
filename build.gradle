@@ -16,6 +16,13 @@ application {
     mainClass = 'com.example.rag.RagApplication'
 }
 
+// Forçar output em tempo real (sem buffer)
+run {
+    standardOutput = System.out
+    errorOutput = System.err
+    standardInput = System.in
+}
+
 repositories {
     mavenCentral()
 }

@@ -1,6 +1,8 @@
 package com.example.rag.automation;
 
 import com.example.rag.automation.model.Question;
+import com.example.rag.automation.model.TipoQuestao;
+import com.example.rag.config.Config;
 import com.example.rag.retrieval.RagQueryEngine;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
@@ -30,6 +32,44 @@ public class QuestionProcessor {
     }
     
     /**
+     * Determina maxResults ideal baseado no tipo da questão.
+     * 
+     * OTIMIZAÇÃO POR TIPO (configurável via .env):
+     * - MONETARIA: Config.MAX_RESULTS_MONETARIA (padrão 10)
+     * - TEXTO_ESPECIFICO: Config.MAX_RESULTS_TEXTO_ESPECIFICO (padrão 10)
+     * - SIM_NAO: Config.MAX_RESULTS_SIM_NAO (padrão 20)
+     * - CONTAGEM: Config.MAX_RESULTS_CONTAGEM (padrão 20)
+     * - MULTIPLA_ESCOLHA: Config.MAX_RESULTS_MULTIPLA_ESCOLHA (padrão 15)
+     * 
+     * BENEFÍCIO: Economiza ~40% de tokens INPUT do Gemini em questões MONETARIA/TEXTO
+     */
+    private int getMaxResultsForType(TipoQuestao type) {
+        if (type == null) {
+            return Config.MAX_RESULTS_FOR_RETRIEVAL; // Padrão para tipos não definidos
+        }
+        
+        switch (type) {
+            case MONETARIA:
+                return Config.MAX_RESULTS_MONETARIA;
+            
+            case TEXTO_ESPECIFICO:
+                return Config.MAX_RESULTS_TEXTO_ESPECIFICO;
+            
+            case SIM_NAO:
+                return Config.MAX_RESULTS_SIM_NAO;
+            
+            case CONTAGEM:
+                return Config.MAX_RESULTS_CONTAGEM;
+            
+            case MULTIPLA_ESCOLHA:
+                return Config.MAX_RESULTS_MULTIPLA_ESCOLHA;
+            
+            default:
+                return Config.MAX_RESULTS_FOR_RETRIEVAL; // Fallback
+        }
+    }
+    
+    /**
      * Processa uma questão e retorna a resposta.
      * 
      * @param question Questão do guia
@@ -41,14 +81,18 @@ public class QuestionProcessor {
         System.out.println("=".repeat(80));
         
         try {
+            // PASSO 0: Determinar maxResults baseado no tipo
+            int maxResults = getMaxResultsForType(question.getTipo());
+            System.out.println("\n⚙️  Tipo: " + question.getTipo() + " → MaxResults: " + maxResults);
+            
             // PASSO 1: Enriquecer query de busca
             String enrichedQuery = buildEnrichedSearchQuery(question);
             System.out.println("\n🔍 Query enriquecida:");
             System.out.println("   " + enrichedQuery.substring(0, Math.min(100, enrichedQuery.length())) + "...");
             
-            // PASSO 2: Buscar chunks relevantes
+            // PASSO 2: Buscar chunks relevantes (com maxResults customizado)
             System.out.println("\n🔎 Buscando chunks relevantes...");
-            List<EmbeddingMatch<TextSegment>> matches = ragEngine.retrieveOnly(enrichedQuery);
+            List<EmbeddingMatch<TextSegment>> matches = ragEngine.retrieveOnlyWithMaxResults(enrichedQuery, maxResults);
             
             if (matches.isEmpty()) {
                 System.out.println("   ⚠️ Nenhum chunk relevante encontrado!");

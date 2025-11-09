@@ -56,11 +56,11 @@ public class Config {
      * - Gemini 2.5 Pro: 2 RPM
      * 
      * Valores recomendados:
-     * - Free Tier Flash: 6000ms (6s) = 10 requests/min com margem de segurança
+     * - Free Tier Flash: 10000ms (10s) = 6 requests/min com alta margem de segurança
      * - Free Tier Pro: 30000ms (30s) = 2 requests/min
      * - Nível 1 (pago): 100ms ou menos
      * 
-     * Padrão: 6000ms (adequado para Free Tier do Flash)
+     * Padrão: 10000ms (adequado para Free Tier do Flash - evita quota exceeded)
      */
     public static final long REQUEST_DELAY_MS;
     
@@ -86,8 +86,9 @@ public class Config {
                       System.getenv().getOrDefault("GEMINI_MODEL", "gemini-2.5-flash"));
         
         // Rate limiting configurations
+        // AJUSTADO: 20s para garantir TPM < 250k (estava 306k com 15s)
         String delayStr = System.getProperty("REQUEST_DELAY_MS",
-                         System.getenv().getOrDefault("REQUEST_DELAY_MS", "6000"));
+                         System.getenv().getOrDefault("REQUEST_DELAY_MS", "20000"));
         REQUEST_DELAY_MS = Long.parseLong(delayStr);
         
         String checkpointStr = System.getProperty("CHECKPOINT_INTERVAL",
@@ -104,8 +105,29 @@ public class Config {
         SEGMENT_OVERLAP_IN_TOKENS = Integer.parseInt(overlapStr);
         
         String maxResultsStr = System.getProperty("MAX_RESULTS_FOR_RETRIEVAL",
-                              System.getenv().getOrDefault("MAX_RESULTS_FOR_RETRIEVAL", "15"));
+                              System.getenv().getOrDefault("MAX_RESULTS_FOR_RETRIEVAL", "20"));
         MAX_RESULTS_FOR_RETRIEVAL = Integer.parseInt(maxResultsStr);
+        
+        // MAX_RESULTS por tipo de questão (TESTE: 12 para capturar tabelas de honorários)
+        String maxResultsMonetariaStr = System.getProperty("MAX_RESULTS_MONETARIA",
+                                       System.getenv().getOrDefault("MAX_RESULTS_MONETARIA", "12"));
+        MAX_RESULTS_MONETARIA = Integer.parseInt(maxResultsMonetariaStr);
+        
+        String maxResultsTextoStr = System.getProperty("MAX_RESULTS_TEXTO_ESPECIFICO",
+                                   System.getenv().getOrDefault("MAX_RESULTS_TEXTO_ESPECIFICO", "8"));
+        MAX_RESULTS_TEXTO_ESPECIFICO = Integer.parseInt(maxResultsTextoStr);
+        
+        String maxResultsSimNaoStr = System.getProperty("MAX_RESULTS_SIM_NAO",
+                                    System.getenv().getOrDefault("MAX_RESULTS_SIM_NAO", "18"));
+        MAX_RESULTS_SIM_NAO = Integer.parseInt(maxResultsSimNaoStr);
+        
+        String maxResultsContagemStr = System.getProperty("MAX_RESULTS_CONTAGEM",
+                                      System.getenv().getOrDefault("MAX_RESULTS_CONTAGEM", "18"));
+        MAX_RESULTS_CONTAGEM = Integer.parseInt(maxResultsContagemStr);
+        
+        String maxResultsMultiplaStr = System.getProperty("MAX_RESULTS_MULTIPLA_ESCOLHA",
+                                      System.getenv().getOrDefault("MAX_RESULTS_MULTIPLA_ESCOLHA", "12"));
+        MAX_RESULTS_MULTIPLA_ESCOLHA = Integer.parseInt(maxResultsMultiplaStr);
         
         String minScoreStr = System.getProperty("MIN_SCORE_FOR_RETRIEVAL",
                             System.getenv().getOrDefault("MIN_SCORE_FOR_RETRIEVAL", "0.60"));
@@ -142,14 +164,28 @@ public class Config {
     public static final int SEGMENT_OVERLAP_IN_TOKENS;
     
     /**
-     * Quantidade máxima de chunks a serem recuperados na busca por similaridade.
+     * Quantidade máxima de chunks a serem recuperados na busca por similaridade (padrão).
      * 
      * Mais resultados = mais contexto, mas prompt maior e mais caro
      * 
-     * Padrão: 15 resultados
+     * Padrão: 20 resultados
      * Configurável via .env: MAX_RESULTS_FOR_RETRIEVAL
      */
     public static final int MAX_RESULTS_FOR_RETRIEVAL;
+    
+    /**
+     * MAX_RESULTS customizados por tipo de questão (otimização de tokens).
+     * 
+     * OTIMIZAÇÃO: Questões MONETARIA/TEXTO_ESPECIFICO precisam de menos contexto (10 chunks)
+     * enquanto SIM_NAO/CONTAGEM precisam de mais contexto para decisão/contagem completa (20 chunks).
+     * 
+     * BENEFÍCIO: Economiza ~40% de tokens INPUT do Gemini em questões simples
+     */
+    public static final int MAX_RESULTS_MONETARIA;
+    public static final int MAX_RESULTS_TEXTO_ESPECIFICO;
+    public static final int MAX_RESULTS_SIM_NAO;
+    public static final int MAX_RESULTS_CONTAGEM;
+    public static final int MAX_RESULTS_MULTIPLA_ESCOLHA;
     
     /**
      * Score mínimo de similaridade para considerar um chunk relevante.

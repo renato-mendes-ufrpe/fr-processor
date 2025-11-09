@@ -1,3 +1,38 @@
+## 🚩 Diferenças e Análise de Regressão (branch splitter-semantic-teste)
+
+- Implementado splitter semântico (`SemanticDocumentSplitter.java`), agrupando registros de pessoas e seções.
+- Parâmetros de chunking alterados: `MAX_SEGMENT_SIZE_IN_TOKENS=1200`, `SEGMENT_OVERLAP_IN_TOKENS=600`.
+- Cache de embeddings persistente (`embeddings-cache.json`).
+- Mudança de token Gemini após esgotar limites.
+- Regressão observada principalmente em questões de CONTAGEM e TEXTO.
+- Acurácia caiu de 83.3% (20/24) para 50% (12/24).
+- Principais causas: granularidade dos chunks, modelo Gemini, parâmetros de recuperação.
+
+### Resultados por Tipo de Questão
+
+| Tipo                | Acertos | Total | Taxa   | Status     |
+|---------------------|---------|-------|--------|------------|
+| **MONETÁRIA**       | 3/4     | 75%   | ⚠️     | Regressão  |
+| **TEXTO_ESPECÍFICO**| 1/2     | 50%   | ⚠️     | Regressão  |
+| **SIM/NÃO**         | 7/9     | 77.8% | ⚠️     | Igual      |
+| **CONTAGEM**        | 3/9     | 33.3% | ❌     | Regressão  |
+
+## Principais Mudanças
+
+- Splitter semântico agrupa blocos de pessoas/seções, alterando granularidade dos chunks.
+- Chunks maiores (1200 tokens) e overlap alto (600 tokens).
+- Cache persistente de embeddings para acelerar reindexação.
+- Novo token Gemini pode ter afetado determinismo e qualidade das respostas.
+
+## Recomendações
+
+- Testar splitter antigo (recursivo simples) para comparar granularidade dos chunks.
+- Reduzir tamanho dos chunks ou overlap para ver se melhora contagem.
+- Aumentar `MAX_RESULTS_CONTAGEM` para 25-30.
+- Validar se o novo token Gemini está usando o mesmo modelo/configuração (ex: temperatura=0).
+- Revisar pós-processamento das respostas para contagem/listas.
+
+---
 # RAG + LLM para Extração Automatizada de Formulários de Referência
 
 Sistema automatizado para extração de informações de Formulários de Referência (FRs) usando RAG (Retrieval-Augmented Generation) com LangChain4j e Google Gemini.

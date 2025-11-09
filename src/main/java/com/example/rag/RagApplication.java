@@ -158,9 +158,9 @@ public class RagApplication {
             // Configuração
             String companyName = "Ambipar Participações e Empreendimentos S.A.";
             
-            // Processar as 24 primeiras questões do CSV (índices 0 a 23)
-            // que correspondem aos números: 2, 3, 5, 6, 8, 10, 14, 15, 16, 18, 19, 23, 27, 30, 31, 32, 33, 34, 38, 39, 40, 41, 47, 63
-            int numQuestionsToProcess = 24;
+            // MODO COMPLETO: Processar todas as 24 questões
+            // Para debug: altere para 5 (Q2, Q3, Q5, Q6, Q8)
+            int numQuestionsToProcess = 24;  // TODAS as questões
             
             System.out.println("🏢 Empresa: " + companyName);
             System.out.println("📋 Questões a processar: " + numQuestionsToProcess + " primeiras do CSV");

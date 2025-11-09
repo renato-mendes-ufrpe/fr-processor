@@ -4,7 +4,6 @@ import com.example.rag.config.Config;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.document.parser.apache.tika.ApacheTikaDocumentParser;
-import dev.langchain4j.data.document.splitter.DocumentSplitters;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
@@ -14,6 +13,7 @@ import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -94,21 +94,70 @@ public class DocumentIndexer {
     private final EmbeddingModel embeddingModel;
     
     /**
+     * Caminho do cache de embeddings em disco.
+     */
+    private static final String CACHE_PATH = "embeddings-cache.json";
+    
+    /**
      * Construtor da classe DocumentIndexer.
      * 
-     * Inicializa os componentes necessários:
-     * 1. InMemoryEmbeddingStore - Banco de vetores em memória
-     * 2. AllMiniLmL6V2EmbeddingModel - Modelo de embeddings local
+     * AGORA COM CACHE PERSISTENTE:
+     * 1. Tenta carregar embeddings do cache em disco
+     * 2. Se cache existe e está válido: reutiliza (economiza tempo!)
+     * 3. Se não: cria novo InMemoryEmbeddingStore
      * 
-     * Nota: O modelo é baixado automaticamente na primeira execução
-     * e fica em cache para usos futuros (~80 MB).
+     * BENEFÍCIOS:
+     * - ⚡ Reprocessamento muito mais rápido (segundos vs minutos)
+     * - 💾 Economiza memória do VS Code
+     * - 🔄 Só reindexar quando documento ou parâmetros mudarem
      */
     public DocumentIndexer() {
-        this.embeddingStore = new InMemoryEmbeddingStore<>();
         this.embeddingModel = new AllMiniLmL6V2EmbeddingModel();
         
-        System.out.println("✅ DocumentIndexer inicializado");
-        System.out.println("   Embedding Model: AllMiniLmL6V2 (384 dimensões, local)");
+        // Tentar carregar do cache
+        InMemoryEmbeddingStore<TextSegment> cached = loadFromCache();
+        if (cached != null) {
+            this.embeddingStore = cached;
+            System.out.println("✅ DocumentIndexer inicializado COM CACHE");
+            System.out.println("   📦 Embeddings carregados do cache: " + CACHE_PATH);
+            System.out.println("   ⚡ Reprocessamento instantâneo!");
+        } else {
+            this.embeddingStore = new InMemoryEmbeddingStore<>();
+            System.out.println("✅ DocumentIndexer inicializado SEM CACHE");
+            System.out.println("   Embedding Model: AllMiniLmL6V2 (384 dimensões, local)");
+            System.out.println("   💡 Cache será salvo após indexação");
+        }
+    }
+    
+    /**
+     * Carrega embeddings do cache em disco.
+     * @return EmbeddingStore se cache válido, null caso contrário
+     */
+    private InMemoryEmbeddingStore<TextSegment> loadFromCache() {
+        try {
+            Path cachePath = Path.of(CACHE_PATH);
+            if (!Files.exists(cachePath)) {
+                return null;
+            }
+            
+            System.out.println("📂 Carregando cache: " + CACHE_PATH);
+            return InMemoryEmbeddingStore.fromFile(CACHE_PATH);
+        } catch (Exception e) {
+            System.out.println("⚠️  Erro ao carregar cache: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Salva embeddings no cache em disco.
+     */
+    private void saveToCache() {
+        try {
+            embeddingStore.serializeToFile(CACHE_PATH);
+            System.out.println("💾 Cache salvo em: " + CACHE_PATH);
+        } catch (Exception e) {
+            System.out.println("⚠️  Erro ao salvar cache: " + e.getMessage());
+        }
     }
     
     /**
@@ -157,15 +206,15 @@ public class DocumentIndexer {
             System.out.println("   [2/5] Parsing concluído: " + document.text().length() + " caracteres");
             
             // ETAPA 3: Dividir documento em chunks
-            // DocumentSplitter recursivo tenta manter a estrutura do texto:
-            // - Primeiro tenta dividir por parágrafos duplos (\n\n)
-            // - Se o chunk for muito grande, divide por parágrafos simples (\n)
-            // - Se ainda for grande, divide por sentenças (.)
-            // - Como último recurso, divide por palavras
-            System.out.println("   [3/5] Dividindo em chunks...");
-            DocumentSplitter splitter = DocumentSplitters.recursive(
-                Config.MAX_SEGMENT_SIZE_IN_TOKENS,  // 500 tokens
-                Config.SEGMENT_OVERLAP_IN_TOKENS    // 50 tokens de overlap
+            // SemanticDocumentSplitter customizado para o Formulário de Referência:
+            // - Identifica blocos semânticos (registros de pessoas, seções)
+            // - Divide apenas entre blocos, nunca no meio de um registro
+            // - Garante que Nome + Cargo/Classificação fiquem sempre juntos
+            // - Aplica overlap de blocos completos para manter contexto
+            System.out.println("   [3/5] Dividindo em chunks (semantic splitter)...");
+            DocumentSplitter splitter = new SemanticDocumentSplitter(
+                Config.MAX_SEGMENT_SIZE_IN_TOKENS,  // 2000 tokens
+                Config.SEGMENT_OVERLAP_IN_TOKENS    // 600 tokens de overlap
             );
             
             // ETAPA 4: Criar o Ingestor (processador de ingestão)
@@ -188,6 +237,11 @@ public class DocumentIndexer {
             System.out.println("   [5/5] Indexação concluída!");
             System.out.println("   ✅ Documento indexado com sucesso");
             System.out.println("   ✅ Embeddings armazenados em memória");
+            
+            // ETAPA 6: Salvar cache em disco para reuso
+            System.out.println("   [6/6] Salvando cache em disco...");
+            saveToCache();
+            System.out.println("   ⚡ Próxima execução será instantânea!");
             
         } catch (Exception e) {
             System.err.println("❌ Erro ao indexar documento: " + e.getMessage());

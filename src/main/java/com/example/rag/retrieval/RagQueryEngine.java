@@ -249,6 +249,101 @@ public class RagQueryEngine {
     }
     
     /**
+     * Executa query com maxResults customizado (para otimização por tipo de questão).
+     * 
+     * OTIMIZAÇÃO POR TIPO:
+     * - MONETÁRIA/TEXTO_ESPECÍFICO: 10 resultados (informação precisa, menos contexto)
+     * - SIM/NÃO/CONTAGEM: 20 resultados (precisa de mais contexto para decisão)
+     * - OUTROS: 15 resultados (padrão intermediário)
+     * 
+     * BENEFÍCIO:
+     * Economiza tokens do Gemini Free Tier (250k INPUT/dia) sem perder qualidade
+     * 
+     * @param userQuestion Pergunta do usuário
+     * @param maxResults Quantidade máxima de chunks a recuperar
+     * @return Resposta gerada (com Gemini) ou prompt aumentado (sem Gemini)
+     */
+    public String queryWithMaxResults(String userQuestion, int maxResults) {
+        System.out.println("\n🔍 Processando query: \"" + userQuestion + "\"");
+        System.out.println("   ⚙️  Max Results customizado: " + maxResults);
+        
+        // 1. Converter a pergunta em embedding
+        System.out.println("   🔄 Gerando embedding da query...");
+        Embedding queryEmbedding = embeddingModel.embed(userQuestion).content();
+        
+        // 2. Buscar documentos similares (com maxResults customizado)
+        System.out.println("   🔎 Buscando documentos relevantes...");
+        EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
+                .queryEmbedding(queryEmbedding)
+                .maxResults(maxResults)  // Usa o valor passado
+                .minScore(Config.MIN_SCORE_FOR_RETRIEVAL)
+                .build();
+        
+        EmbeddingSearchResult<TextSegment> searchResult = embeddingStore.search(searchRequest);
+        List<EmbeddingMatch<TextSegment>> matches = searchResult.matches();
+        
+        System.out.println("   ✅ Encontrados " + matches.size() + " documentos relevantes");
+        
+        // 3. Imprimir os matches
+        printMatches(matches);
+        
+        // 4. Construir contexto aumentado
+        String context = buildContext(matches);
+        
+        // 5. Criar prompt aumentado
+        String augmentedPrompt = buildAugmentedPrompt(userQuestion, context);
+        
+        System.out.println("\n   💡 Contexto recuperado com sucesso!");
+        System.out.println("   📊 Total de caracteres no contexto: " + context.length());
+        
+        // 6. Se Gemini estiver configurado, gerar resposta
+        if (chatModel != null) {
+            System.out.println("   🤖 Enviando para Gemini...");
+            try {
+                String answer = chatModel.chat(augmentedPrompt);
+                System.out.println("   ✅ Resposta recebida do Gemini");
+                return answer;
+            } catch (Exception e) {
+                System.err.println("   ❌ Erro ao chamar Gemini: " + e.getMessage());
+                return augmentedPrompt + "\n\n[ERRO ao gerar resposta com Gemini]";
+            }
+        } else {
+            // Sem Gemini, retorna apenas o prompt aumentado
+            return augmentedPrompt;
+        }
+    }
+    
+    /**
+     * Executa busca somente por retrieval com maxResults customizado.
+     * 
+     * OTIMIZAÇÃO: Permite variar quantidade de chunks por tipo de questão
+     * 
+     * @param userQuestion Pergunta do usuário
+     * @param maxResults Quantidade máxima de chunks
+     * @return Lista de matches ordenados por similaridade
+     */
+    public List<EmbeddingMatch<TextSegment>> retrieveOnlyWithMaxResults(String userQuestion, int maxResults) {
+        System.out.println("\n🔍 Modo Retrieval Only: \"" + userQuestion + "\"");
+        System.out.println("   ⚙️  Max Results customizado: " + maxResults);
+        
+        Embedding queryEmbedding = embeddingModel.embed(userQuestion).content();
+        
+        EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
+                .queryEmbedding(queryEmbedding)
+                .maxResults(maxResults)  // Usa o valor customizado
+                .minScore(Config.MIN_SCORE_FOR_RETRIEVAL)
+                .build();
+        
+        EmbeddingSearchResult<TextSegment> searchResult = embeddingStore.search(searchRequest);
+        List<EmbeddingMatch<TextSegment>> matches = searchResult.matches();
+        
+        System.out.println("   ✅ Encontrados " + matches.size() + " documentos");
+        printMatches(matches);
+        
+        return matches;
+    }
+    
+    /**
      * Executa busca somente por retrieval, sem geração de resposta.
      * 
      * Este método é útil para:
@@ -278,23 +373,7 @@ public class RagQueryEngine {
      * @return Lista de matches ordenados por similaridade (maior para menor)
      */
     public List<EmbeddingMatch<TextSegment>> retrieveOnly(String userQuestion) {
-        System.out.println("\n🔍 Modo Retrieval Only: \"" + userQuestion + "\"");
-        
-        Embedding queryEmbedding = embeddingModel.embed(userQuestion).content();
-        
-        EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
-                .queryEmbedding(queryEmbedding)
-                .maxResults(Config.MAX_RESULTS_FOR_RETRIEVAL)
-                .minScore(Config.MIN_SCORE_FOR_RETRIEVAL)
-                .build();
-        
-        EmbeddingSearchResult<TextSegment> searchResult = embeddingStore.search(searchRequest);
-        List<EmbeddingMatch<TextSegment>> matches = searchResult.matches();
-        
-        System.out.println("   ✅ Encontrados " + matches.size() + " documentos");
-        printMatches(matches);
-        
-        return matches;
+        return retrieveOnlyWithMaxResults(userQuestion, Config.MAX_RESULTS_FOR_RETRIEVAL);
     }
     
     /**
