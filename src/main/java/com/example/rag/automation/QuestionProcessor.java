@@ -174,14 +174,40 @@ public class QuestionProcessor {
                 String questaoLower = q.getQuestao().toLowerCase();
                 if (questaoLower.contains("conselho") || questaoLower.contains("conselheiro")) {
                     enrichment.append("conselheiros administração independente externo executivo ");
-                    enrichment.append("cargo eletivo ocupado órgão seção 7.3 7.1 ");
+                    // Termos CRÍTICOS que aparecem APENAS nas tabelas individuais dos membros
+                    enrichment.append("CPF Passaporte Experiência Profissional formado graduado ");
+                    enrichment.append("Nome CPF Nacionalidade Profissão Data Nascimento ");
+                    enrichment.append("Órgão da Administração Data da Eleição Prazo do mandato ");
+                    enrichment.append("Cargo eletivo ocupado Descrição de outro cargo função ");
+                    enrichment.append("Data de posse Foi eleito pelo controlador primeiro mandato ");
+                    // Padrões EXATOS dos cargos
+                    enrichment.append("Conselho de Adm. Independente (Efetivo) ");
+                    enrichment.append("Conselho de Administração (Efetivo) ");
+                    enrichment.append("Presidente do Conselho de Administração ");
+                    enrichment.append("Conselheiro(Efetivo) e Dir. Presidente ");
+                    // Para diferenciar de Diretoria
+                    enrichment.append("seção 7.3 item 7.3 páginas 181 187 ");
+                    
+                    if (questaoLower.contains("independente")) {
+                        enrichment.append("Independente (Efetivo) cargo Adm. ");
+                    }
+                    if (questaoLower.contains("externo")) {
+                        enrichment.append("NÃO Independente NÃO Diretor apenas Conselho ");
+                    }
+                    if (questaoLower.contains("executivo")) {
+                        enrichment.append("Diretoria e Conselho Diretor Presidente ambos ");
+                    }
                 }
                 if (questaoLower.contains("mulher")) {
                     enrichment.append("mulheres feminino gênero ");
                 }
                 if (questaoLower.contains("comitê")) {
-                    enrichment.append("comitê auditoria sustentabilidade risco coordenador ");
-                    enrichment.append("seção 7.4 composição membros ");
+                    enrichment.append("comitê auditoria sustentabilidade risco ");
+                    // Termos estruturais das tabelas de comitês
+                    enrichment.append("Comitês Tipo comitê Tipo auditoria Cargo ocupado ");
+                    enrichment.append("Data posse Prazo mandato Descrição outros comitês ");
+                    enrichment.append("cargo função Coordenador membro reconhecida experiência ");
+                    enrichment.append("Estatuário Resolução CVM seção 7.4 ");
                 }
                 break;
                 
@@ -349,53 +375,70 @@ public class QuestionProcessor {
      */
     private String buildCountingPrompt(Question q, String context) {
         return String.format("""
-            Você é um assistente especializado em contar membros/comitês em Formulários de Referência.
-            
-            TAREFA: Contar a quantidade EXATA conforme solicitado.
-            
-            QUESTÃO: %s
-            
-            LOCALIZAÇÃO: %s
-            
-            INSTRUÇÕES DE CONTAGEM:
-            %s
-            
-            OBSERVAÇÕES:
-            %s
+            TAREFA: %s
             
             DOCUMENTOS:
             %s
             
-            REGRAS CRÍTICAS:
-            1. Retorne APENAS um número inteiro (0, 1, 2, 3, etc.)
-            2. NÃO inclua texto explicativo ou unidade
-            3. Busque em tabelas/listas nas seções 7.3 (Conselho) ou 7.4 (Comitês)
-            4. IMPORTANTE: Conte apenas membros EFETIVOS (NÃO conte suplentes)
-            5. Para gênero: identifique pelo nome próprio da pessoa
+            ═══════════════════════════════════════════════════════════════
+            🎯 REGRA ABSOLUTA - Identificar membros corretamente:
+            ═══════════════════════════════════════════════════════════════
             
-            6. IMPORTANTE - Para tipos de conselheiros (Independente/Externo/Executivo):
-               - O TIPO está DENTRO do campo "Cargo eletivo ocupado", NÃO é uma coluna separada
-               - Procure padrões como:
-                 * "Conselho de Adm. Independente (Efetivo)" → Conselheiro Independente
-                 * "Conselho de Administração (Efetivo)" → Conselheiro Externo (nem independente nem executivo)
-                 * "Diretor" ou "Diretoria" no cargo → Conselheiro Executivo
-               - Se o campo "Cargo eletivo ocupado" contém a palavra "Independente", conte como independente
-               - Se contém "Diretor" ou "Diretoria", conte como executivo
-               - Caso contrário, considere externo (nem independente nem executivo)
+            ✅ CONSELHEIRO = SOMENTE se tiver esta estrutura:
+               Nome: [NOME COMPLETO]
+               CPF: [###.###.###-##]
+               Órgãos da Administração:
+                  Órgão da Administração: "Conselho de Administração"
             
-            7. Para comitês:
-               - Conte os membros listados nas tabelas da seção 7.4
-               - Para cruzamento Conselho × Comitê: verifique se o nome da pessoa aparece em ambas as seções
+            ❌ NÃO É CONSELHEIRO se:
+               • Órgão da Administração = "Diretoria" (mesmo que seja diretor)
+               • Só aparece em seção "Comitês:" (sem tabela "Órgãos da Administração")
+               • Não tem a coluna "Órgão da Administração" = "Conselho de Administração"
             
-            8. Se não encontrar a informação: retorne "0" se a estrutura não existe, ou "INFORMAÇÃO NÃO ENCONTRADA"
+            ═══════════════════════════════════════════════════════════════
+            📋 TIPOS DE CONSELHEIROS (veja coluna "Cargo eletivo ocupado"):
+            ═══════════════════════════════════════════════════════════════
             
-            RESPOSTA (apenas o número):
+            INDEPENDENTE:
+               ✅ "Cargo eletivo ocupado" contém "Independente"
+               ✅ Exemplos: "Conselho de Adm. Independente (Efetivo)"
+               ✅ DEVE ter "Órgão da Administração" = "Conselho de Administração"
+            
+            EXTERNO:
+               ✅ "Cargo eletivo ocupado" = "Conselho de Administração (Efetivo)"
+               ✅ SEM palavra "Independente" E SEM palavra "Diretor"
+               ✅ DEVE ter "Órgão da Administração" = "Conselho de Administração"
+            
+            EXECUTIVO:
+               ✅ Aparece em DUAS linhas: uma com Diretoria E outra com Conselho
+               ✅ OU "Cargo eletivo ocupado" contém "Diretor" E "Conselheiro"
+               ✅ Exemplo: "Conselheiro(Efetivo) e Dir. Presidente"
+            
+            ═══════════════════════════════════════════════════════════════
+            📋 MEMBROS DE COMITÊS (seção 7.4):
+            ═══════════════════════════════════════════════════════════════
+            
+            ✅ Procure seção "Comitês:" após os dados da pessoa
+            ✅ Tabela tem: "Tipo comitê", "Cargo ocupado", "Data posse"
+            ✅ ATENÇÃO: Pessoa pode estar em Comitê E ser Conselheiro (se tiver ambas as seções)
+            ✅ Se pergunta sobre "membros do Comitê que são conselheiros":
+               → Conte APENAS quem aparece em "Comitês:" E tem "Órgão da Administração" = "Conselho de Administração"
+            
+            ═══════════════════════════════════════════════════════════════
+            
+            INSTRUÇÕES: %s
+            OBSERVAÇÕES: %s
+            
+            FORMATO DE RESPOSTA: NÚMERO (Nome1, Nome2, Nome3)
+            Exemplo: "3 (João Silva, Maria Santos, Pedro Oliveira)"
+            Se for 0: retorne apenas "0"
+            
+            RESPOSTA:
             """,
             q.getQuestao(),
-            q.getOnde() != null ? q.getOnde() : "FR - Seção 7",
+            context,
             q.getComoPreencher() != null ? q.getComoPreencher() : "",
-            q.getObservacoes() != null ? q.getObservacoes() : "",
-            context
+            q.getObservacoes() != null ? q.getObservacoes() : ""
         );
     }
     
@@ -627,21 +670,36 @@ public class QuestionProcessor {
     
     /**
      * Pós-processa respostas de contagem.
-     * Extrai APENAS o número inteiro.
+     * Extrai número e preserva nomes se presentes.
+     * Formato esperado: "NÚMERO (Nome 1, Nome 2, ...)"
      */
     private String postProcessCounting(String answer) {
-        // Se já é um número puro, retornar
-        if (answer.matches("\\d+")) {
-            return answer;
-        }
-        
         // Se é "INFORMAÇÃO NÃO ENCONTRADA", manter
         if (answer.toUpperCase().contains("INFORMAÇÃO NÃO ENCONTRADA") || 
             answer.toUpperCase().contains("INFORMACAO NAO ENCONTRADA")) {
             return "INFORMAÇÃO NÃO ENCONTRADA";
         }
         
-        // Extrair primeiro número da resposta
+        // Remover pontos finais e espaços extras
+        answer = answer.trim().replaceAll("\\.$", "");
+        
+        // Verificar se já está no formato "NÚMERO (Nomes...)"
+        Pattern formatPattern = Pattern.compile("^(\\d+)\\s*\\(([^)]+)\\)");
+        Matcher formatMatcher = formatPattern.matcher(answer);
+        
+        if (formatMatcher.find()) {
+            // Já está no formato correto
+            String numero = formatMatcher.group(1);
+            String nomes = formatMatcher.group(2).trim();
+            return numero + " (" + nomes + ")";
+        }
+        
+        // Se é apenas um número puro, retornar
+        if (answer.matches("^\\d+$")) {
+            return answer;
+        }
+        
+        // Extrair primeiro número da resposta (fallback para formato antigo)
         Pattern pattern = Pattern.compile("\\d+");
         Matcher matcher = pattern.matcher(answer);
         
