@@ -10,7 +10,6 @@ import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -139,11 +138,11 @@ public class RagQueryEngine {
             this.chatModel = GoogleAiGeminiChatModel.builder()
                     .apiKey(Config.GEMINI_API_KEY)
                     .modelName(Config.GEMINI_MODEL)
-                    .temperature(0.7)
+                    .temperature(0.0) // Determinístico
                     .maxRetries(3)
                     .timeout(Duration.ofSeconds(30))
                     .build();
-            System.out.println("✅ RagQueryEngine inicializado com Gemini (" + Config.GEMINI_MODEL + ")");
+            System.out.println("✅ RagQueryEngine inicializado com Gemini (" + Config.GEMINI_MODEL + ", temperature=0.0)");
         } else {
             this.chatModel = null;
             System.out.println("✅ RagQueryEngine inicializado (somente retrieval - sem Gemini)");
@@ -239,8 +238,11 @@ public class RagQueryEngine {
                 System.out.println("   ✅ Resposta recebida do Gemini");
                 return answer;
             } catch (Exception e) {
-                System.err.println("   ❌ Erro ao chamar Gemini: " + e.getMessage());
-                return augmentedPrompt + "\n\n[ERRO ao gerar resposta com Gemini]";
+                // Log detalhado da exceção, mas NÃO retornar o prompt como resposta.
+                // Retornar null permite que o QuestionProcessor trate como "INFORMAÇÃO NÃO ENCONTRADA".
+                System.err.println("   ❌ Erro ao chamar Gemini: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+                e.printStackTrace(System.err);
+                return null;
             }
         } else {
             // Sem Gemini, retorna apenas o prompt aumentado

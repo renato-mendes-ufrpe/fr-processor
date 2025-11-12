@@ -5,7 +5,6 @@ import com.example.rag.retrieval.RagQueryEngine;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -67,8 +66,14 @@ public class QuestionProcessor {
             // PASSO 5: Enviar para Gemini
             System.out.println("\n🤖 Enviando para Gemini...");
             String rawAnswer = ragEngine.query(structuredPrompt);
-            
+
             // PASSO 6: Pós-processar resposta
+            // Se rawAnswer for nulo (ex: erro de API/rate-limit), tratar como não encontrada
+            if (rawAnswer == null) {
+                System.err.println("   ⚠️ Resposta do LLM é nula — tratando como informação não encontrada (provável erro na chamada ao modelo)");
+                return "INFORMAÇÃO NÃO ENCONTRADA";
+            }
+
             String finalAnswer = postProcessAnswer(rawAnswer, question);
             
             System.out.println("\n✅ Resposta final: " + finalAnswer);
@@ -100,168 +105,14 @@ public class QuestionProcessor {
         // 2. Localização no documento (CRÍTICO para documentos estruturados)
         if (q.getOnde() != null && !q.getOnde().isEmpty()) {
             query.append(q.getOnde()).append(" ");
-            
-            // Adicionar variações da localização
-            String onde = q.getOnde();
-            if (onde.contains("2.1")) {
-                query.append("Condições financeiras patrimoniais ");
-            }
-            if (onde.contains("FR")) {
-                query.append("Formulário Referência ");
-            }
         }
         
-        // 3. Termos entre aspas de "Como Preencher" (termos exatos)
-        if (q.getComoPreencher() != null) {
-            List<String> keywords = extractKeywords(q.getComoPreencher());
-            keywords.forEach(k -> query.append(k).append(" "));
-            
-            // Adicionar também termos importantes SEM aspas
-            String comoPreencher = q.getComoPreencher();
-            if (comoPreencher.contains("Receita")) {
-                query.append("Receita líquida operacional demonstração resultado ");
-            }
-            if (comoPreencher.contains("Lucro")) {
-                query.append("Lucro líquido resultado exercício prejuízo tabela ");
-            }
-            if (comoPreencher.contains("auditoria") || comoPreencher.contains("Auditor")) {
-                query.append("auditoria independente auditor responsável firma ");
-            }
-            if (comoPreencher.contains("honorários") || comoPreencher.contains("gastos")) {
-                query.append("honorários remuneração valores pagos custos ");
-            }
-            if (comoPreencher.contains("mil") || comoPreencher.contains("milhão")) {
-                query.append("R$ mil milhão valores monetários tabela ");
-            }
-        }
-        
-        // 4. Enriquecimento específico por tipo de questão
-        if (q.getTipo() != null) {
-            query.append(enrichByType(q));
-        }
-        
-        // 4. Termos entre aspas de "Observações"
-        if (q.getObservacoes() != null) {
-            List<String> obsKeywords = extractKeywords(q.getObservacoes());
-            obsKeywords.forEach(k -> query.append(k).append(" "));
-            
-            // Contexto adicional de observações
-            String obs = q.getObservacoes();
-            if (obs.toLowerCase().contains("banco")) {
-                query.append("banco instituição financeira ");
-            }
-            if (obs.toLowerCase().contains("df")) {
-                query.append("demonstrações financeiras balanço ");
-            }
+        // 3. Palavras-chave RAG (nova coluna)
+        if (q.getPalavrasChaveRag() != null && !q.getPalavrasChaveRag().isEmpty()) {
+            query.append(q.getPalavrasChaveRag()).append(" ");
         }
         
         return query.toString().trim();
-    }
-    
-    /**
-     * Enriquece query com termos específicos do tipo de questão.
-     */
-    private String enrichByType(Question q) {
-        StringBuilder enrichment = new StringBuilder();
-        
-        switch (q.getTipo()) {
-            case CONTAGEM:
-                // Termos para questões de contagem
-                enrichment.append("tabela lista composição membros ");
-                enrichment.append("efetivos titulares quantidade número ");
-                
-                // Específico para conselheiros
-                String questaoLower = q.getQuestao().toLowerCase();
-                if (questaoLower.contains("conselho") || questaoLower.contains("conselheiro")) {
-                    enrichment.append("conselheiros administração independente externo executivo ");
-                    // Termos CRÍTICOS que aparecem APENAS nas tabelas individuais dos membros
-                    enrichment.append("CPF Passaporte Experiência Profissional formado graduado ");
-                    enrichment.append("Nome CPF Nacionalidade Profissão Data Nascimento ");
-                    enrichment.append("Órgão da Administração Data da Eleição Prazo do mandato ");
-                    enrichment.append("Cargo eletivo ocupado Descrição de outro cargo função ");
-                    enrichment.append("Data de posse Foi eleito pelo controlador primeiro mandato ");
-                    // Padrões EXATOS dos cargos
-                    enrichment.append("Conselho de Adm. Independente (Efetivo) ");
-                    enrichment.append("Conselho de Administração (Efetivo) ");
-                    enrichment.append("Presidente do Conselho de Administração ");
-                    enrichment.append("Conselheiro(Efetivo) e Dir. Presidente ");
-                    // Para diferenciar de Diretoria
-                    enrichment.append("seção 7.3 item 7.3 páginas 181 187 ");
-                    
-                    if (questaoLower.contains("independente")) {
-                        enrichment.append("Independente (Efetivo) cargo Adm. ");
-                    }
-                    if (questaoLower.contains("externo")) {
-                        enrichment.append("NÃO Independente NÃO Diretor apenas Conselho ");
-                    }
-                    if (questaoLower.contains("executivo")) {
-                        enrichment.append("Diretoria e Conselho Diretor Presidente ambos ");
-                    }
-                }
-                if (questaoLower.contains("mulher")) {
-                    enrichment.append("mulheres feminino gênero ");
-                }
-                if (questaoLower.contains("comitê")) {
-                    enrichment.append("comitê auditoria sustentabilidade risco ");
-                    // Termos estruturais das tabelas de comitês
-                    enrichment.append("Comitês Tipo comitê Tipo auditoria Cargo ocupado ");
-                    enrichment.append("Data posse Prazo mandato Descrição outros comitês ");
-                    enrichment.append("cargo função Coordenador membro reconhecida experiência ");
-                    enrichment.append("Estatuário Resolução CVM seção 7.4 ");
-                }
-                break;
-                
-            case SIM_NAO:
-                // Termos para questões sim/não
-                enrichment.append("possui tem divulga afirma menciona ");
-                break;
-                
-            case MONETARIA:
-                // Termos para questões monetárias
-                enrichment.append("R$ mil milhão valores monetários tabela demonstração financeira ");
-                break;
-                
-            case TEXTO_ESPECIFICO:
-                // Termos para texto específico
-                String questaoLowerText = q.getQuestao().toLowerCase();
-                if (questaoLowerText.contains("auditoria") || questaoLowerText.contains("auditor")) {
-                    enrichment.append("firma auditoria independente responsável ");
-                    enrichment.append("BDO KPMG EY PwC Deloitte Grant Thornton ");
-                    enrichment.append("seção 9.1 auditor último exercício nome ");
-                }
-                if (questaoLowerText.contains("política")) {
-                    enrichment.append("política regras procedimentos norma ");
-                    enrichment.append("partes relacionadas transações divulgação ");
-                }
-                break;
-                
-            case MULTIPLA_ESCOLHA:
-                // Termos para múltipla escolha
-                enrichment.append("seguro reembolso D&O responsabilidade civil ");
-                break;
-        }
-        
-        return enrichment.toString();
-    }
-    
-    /**
-     * Extrai palavras-chave importantes (texto entre aspas).
-     */
-    private List<String> extractKeywords(String text) {
-        List<String> keywords = new ArrayList<>();
-        
-        // Extrair texto entre aspas duplas
-        Pattern pattern = Pattern.compile("\"([^\"]*)\"");
-        Matcher matcher = pattern.matcher(text);
-        
-        while (matcher.find()) {
-            String keyword = matcher.group(1);
-            if (!keyword.isEmpty()) {
-                keywords.add(keyword);
-            }
-        }
-        
-        return keywords;
     }
     
     /**
@@ -381,47 +232,47 @@ public class QuestionProcessor {
             %s
             
             ═══════════════════════════════════════════════════════════════
-            🎯 REGRA ABSOLUTA - Identificar membros corretamente:
+            REGRA ABSOLUTA - Identificar membros corretamente:
             ═══════════════════════════════════════════════════════════════
             
-            ✅ CONSELHEIRO = SOMENTE se tiver esta estrutura:
+            CONSELHEIRO = SOMENTE se tiver esta estrutura:
                Nome: [NOME COMPLETO]
                CPF: [###.###.###-##]
                Órgãos da Administração:
                   Órgão da Administração: "Conselho de Administração"
             
-            ❌ NÃO É CONSELHEIRO se:
+            NÃO É CONSELHEIRO se:
                • Órgão da Administração = "Diretoria" (mesmo que seja diretor)
                • Só aparece em seção "Comitês:" (sem tabela "Órgãos da Administração")
                • Não tem a coluna "Órgão da Administração" = "Conselho de Administração"
             
             ═══════════════════════════════════════════════════════════════
-            📋 TIPOS DE CONSELHEIROS (veja coluna "Cargo eletivo ocupado"):
+            TIPOS DE CONSELHEIROS (veja coluna "Cargo eletivo ocupado"):
             ═══════════════════════════════════════════════════════════════
             
             INDEPENDENTE:
-               ✅ "Cargo eletivo ocupado" contém "Independente"
-               ✅ Exemplos: "Conselho de Adm. Independente (Efetivo)"
-               ✅ DEVE ter "Órgão da Administração" = "Conselho de Administração"
-            
+               "Cargo eletivo ocupado" contém "Independente"
+               Exemplos: "Conselho de Adm. Independente (Efetivo)"
+               DEVE ter "Órgão da Administração" = "Conselho de Administração"
+
             EXTERNO:
-               ✅ "Cargo eletivo ocupado" = "Conselho de Administração (Efetivo)"
-               ✅ SEM palavra "Independente" E SEM palavra "Diretor"
-               ✅ DEVE ter "Órgão da Administração" = "Conselho de Administração"
-            
+               "Cargo eletivo ocupado" = "Conselho de Administração (Efetivo)"
+               SEM palavra "Independente" E SEM palavra "Diretor"
+               DEVE ter "Órgão da Administração" = "Conselho de Administração"
+
             EXECUTIVO:
-               ✅ Aparece em DUAS linhas: uma com Diretoria E outra com Conselho
-               ✅ OU "Cargo eletivo ocupado" contém "Diretor" E "Conselheiro"
-               ✅ Exemplo: "Conselheiro(Efetivo) e Dir. Presidente"
-            
+               Aparece em DUAS linhas: uma com Diretoria E outra com Conselho
+               OU "Cargo eletivo ocupado" contém "Diretor" E "Conselheiro"
+               Exemplo: "Conselheiro(Efetivo) e Dir. Presidente"
+
             ═══════════════════════════════════════════════════════════════
             📋 MEMBROS DE COMITÊS (seção 7.4):
             ═══════════════════════════════════════════════════════════════
             
-            ✅ Procure seção "Comitês:" após os dados da pessoa
-            ✅ Tabela tem: "Tipo comitê", "Cargo ocupado", "Data posse"
-            ✅ ATENÇÃO: Pessoa pode estar em Comitê E ser Conselheiro (se tiver ambas as seções)
-            ✅ Se pergunta sobre "membros do Comitê que são conselheiros":
+            Procure seção "Comitês:" após os dados da pessoa
+            Tabela tem: "Tipo comitê", "Cargo ocupado", "Data posse"
+            ATENÇÃO: Pessoa pode estar em Comitê E ser Conselheiro (se tiver ambas as seções)
+            Se pergunta sobre "membros do Comitê que são conselheiros":
                → Conte APENAS quem aparece em "Comitês:" E tem "Órgão da Administração" = "Conselho de Administração"
             
             ═══════════════════════════════════════════════════════════════
@@ -604,12 +455,9 @@ public class QuestionProcessor {
      * Extrai número + unidade, aplica multiplicação se necessário.
      */
     private String postProcessMonetary(String answer) {
-        // Se já está formatado como "R$ X.XXX.XXX", retornar
-        if (answer.matches("R\\$ [\\d.,]+")) {
-            return answer;
-        }
-        
-        // Aplicar regras de conversão (mil/milhão)
+        // Sempre delegar para applyMonetaryRules, que agora preserva o sinal negativo
+        // e aplica formatação consistente. Isso evita casos em que o '-' é perdido
+        // quando o sinal aparece antes ou depois do símbolo monetário.
         return applyMonetaryRules(answer);
     }
     
@@ -823,36 +671,54 @@ public class QuestionProcessor {
      */
     private String applyMonetaryRules(String value) {
         // Padrão para capturar: número + unidade (mil/milhão)
-        Pattern pattern = Pattern.compile("([\\d.,]+)\\s*(?:\\()?(?:em)?\\s*R?\\$?\\s*(mil|milhão|milhões|thousand|million)?(?:\\))?", Pattern.CASE_INSENSITIVE);
+        Pattern pattern = Pattern.compile("([\\d.,]+)\\s*(?:\\()?(?:em)?\\s*R?\\$?\\s*(mil|milh\\u00e3o|milh\\u00f5es|thousand|million)?(?:\\))?", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(value);
-        
+
         if (matcher.find()) {
             String numberStr = matcher.group(1);
             String unit = matcher.group(2);
-            
+
             try {
+                // Detectar se há sinal negativo imediatamente antes do número (ex: "-1.234", "R$ -1.234", "-R$ 1.234")
+                boolean negative = false;
+                int numStart = matcher.start(1);
+                // Procurar para trás até o primeiro caractere não espaço para ver se é '-' ou unicode minus
+                int idx = numStart - 1;
+                while (idx >= 0 && Character.isWhitespace(value.charAt(idx))) idx--;
+                if (idx >= 0) {
+                    char c = value.charAt(idx);
+                    if (c == '-' || c == '−') {
+                        negative = true;
+                    }
+                }
+
                 // Remover pontos de milhar e trocar vírgula por ponto
                 String cleanNumber = numberStr.replace(".", "").replace(",", ".");
                 double number = Double.parseDouble(cleanNumber);
-                
+
                 // Aplicar multiplicação conforme unidade
                 if (unit != null) {
                     if (unit.toLowerCase().contains("mil") || unit.equalsIgnoreCase("thousand")) {
                         number *= 1000;
-                    } else if (unit.toLowerCase().contains("milhão") || unit.toLowerCase().contains("milhões") || unit.equalsIgnoreCase("million")) {
+                    } else if (unit.toLowerCase().contains("milh") || unit.equalsIgnoreCase("million")) {
                         number *= 1000000;
                     }
                 }
-                
-                // Formatar como moeda brasileira
-                return formatCurrency(Math.round(number));
-                
+
+                long rounded = Math.round(number);
+                String formatted = formatCurrency(rounded);
+                // Reinserir sinal negativo se detectado
+                if (negative) {
+                    return "-" + formatted;
+                }
+                return formatted;
+
             } catch (NumberFormatException e) {
                 System.err.println("⚠️ Erro ao converter número: " + numberStr);
                 return value;
             }
         }
-        
+
         return value;
     }
     

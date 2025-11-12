@@ -157,8 +157,16 @@ data/test/
 data/temp/
 
 # Logs de execução
-output/execution-log.txt
+output/execution-log*.txt
 output/*.log
+
+# CSVs gerados (respostas)
+output/respostas*.csv
+output/*-respostas.csv
+
+# Checkpoints e arquivos temporários
+output/checkpoint*.json
+output/*.tmp
 
 # ===================================
 # Build e Relatórios

@@ -127,7 +127,11 @@ public class CsvQuestionReader {
             question.setComoPreencher(cleanField(fields.get(4)));
             question.setObservacoes(cleanField(fields.get(5)));
             question.setTipo(parseTipoQuestao(cleanField(fields.get(6))));
-            
+            if (fields.size() > 7) {
+                question.setPalavrasChaveRag(cleanField(fields.get(7)));
+            } else {
+                question.setPalavrasChaveRag("");
+            }
             return question;
             
         } catch (Exception e) {
@@ -182,26 +186,15 @@ public class CsvQuestionReader {
         if (field == null) {
             return "";
         }
-        
         String cleaned = field.trim();
-        
         // Remover aspas do início e fim se existirem
         if (cleaned.startsWith("\"") && cleaned.endsWith("\"")) {
             cleaned = cleaned.substring(1, cleaned.length() - 1);
         }
-        
         // Substituir aspas duplas escapadas por aspas simples
         cleaned = cleaned.replace("\"\"", "\"");
-        
         return cleaned.trim();
     }
-    
-    /**
-     * Parse seguro de int.
-     * 
-     * @param value String com número
-     * @return int ou 0 se inválido
-     */
     private int parseIntSafe(String value) {
         try {
             return Integer.parseInt(value.trim());

@@ -15,7 +15,7 @@ public enum TipoQuestao {
      * Ex: Q2 (receita líquida), Q3 (lucro líquido), Q6 (gastos auditoria)
      * 
      * Características:
-     * - Resposta esperada: R$ X.XXX.XXX,XX
+     * - Resposta esperada: R$ x.xxx.xxx,xx
      * - Pode estar em R$ mil ou R$ milhão (requer multiplicação)
      * - Geralmente em tabelas de DFs ou seção 2.1.h
      */

@@ -37,7 +37,7 @@ import java.nio.file.Paths;
  * 3. CHUNKING (Divisão)
  *    - Divide o texto em pedaços menores (chunks/segments)
  *    - Usa DocumentSplitter recursivo com overlap
- *    - Cada chunk tem ~500 tokens com 50 tokens de sobreposição
+ *    - Cada chunk tem ~2000 tokens com 600 tokens de sobreposição
  * 
  * 4. EMBEDDING (Vetorização)
  *    - Converte cada chunk em um vetor numérico (embedding)
@@ -164,10 +164,10 @@ public class DocumentIndexer {
             // - Como último recurso, divide por palavras
             System.out.println("   [3/5] Dividindo em chunks...");
             DocumentSplitter splitter = DocumentSplitters.recursive(
-                Config.MAX_SEGMENT_SIZE_IN_TOKENS,  // 500 tokens
-                Config.SEGMENT_OVERLAP_IN_TOKENS    // 50 tokens de overlap
+                Config.MAX_SEGMENT_SIZE_IN_TOKENS,
+                Config.SEGMENT_OVERLAP_IN_TOKENS
             );
-            
+
             // ETAPA 4: Criar o Ingestor (processador de ingestão)
             // EmbeddingStoreIngestor coordena o processo de:
             // 1. Pegar cada chunk do DocumentSplitter

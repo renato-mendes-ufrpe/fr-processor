@@ -35,6 +35,64 @@ package com.example.rag.automation.model;
  * - Resposta_63: O emissor identificou casos de desvios, fraudes, irregularidades e atos ilícitos praticados contra a administração pública?
  */
 public class CompanyResponse {
+    /**
+     * Preenche as respostas manuais a partir de uma linha do CSV de análise manual.
+     * @param manualFields Array de campos da linha do CSV manual (deve incluir todas as colunas)
+     */
+    public void preencherRespostasManuais(String[] manualFields) {
+        // Espera: Nome_Empresa;Resposta_02_RAG;Resposta_02_Manual;Resposta_03_RAG;Resposta_03_Manual;...
+        // Índices das respostas manuais: 2, 4, 6, ...
+        if (manualFields.length < 49) return;
+        this.resposta02 = this.resposta02 == null ? null : this.resposta02;
+        this.resposta03 = this.resposta03 == null ? null : this.resposta03;
+        this.resposta05 = this.resposta05 == null ? null : this.resposta05;
+        this.resposta06 = this.resposta06 == null ? null : this.resposta06;
+        this.resposta08 = this.resposta08 == null ? null : this.resposta08;
+        this.resposta10 = this.resposta10 == null ? null : this.resposta10;
+        this.resposta14 = this.resposta14 == null ? null : this.resposta14;
+        this.resposta15 = this.resposta15 == null ? null : this.resposta15;
+        this.resposta16 = this.resposta16 == null ? null : this.resposta16;
+        this.resposta18 = this.resposta18 == null ? null : this.resposta18;
+        this.resposta19 = this.resposta19 == null ? null : this.resposta19;
+        this.resposta23 = this.resposta23 == null ? null : this.resposta23;
+        this.resposta27 = this.resposta27 == null ? null : this.resposta27;
+        this.resposta30 = this.resposta30 == null ? null : this.resposta30;
+        this.resposta31 = this.resposta31 == null ? null : this.resposta31;
+        this.resposta32 = this.resposta32 == null ? null : this.resposta32;
+        this.resposta33 = this.resposta33 == null ? null : this.resposta33;
+        this.resposta34 = this.resposta34 == null ? null : this.resposta34;
+        this.resposta38 = this.resposta38 == null ? null : this.resposta38;
+        this.resposta39 = this.resposta39 == null ? null : this.resposta39;
+        this.resposta40 = this.resposta40 == null ? null : this.resposta40;
+        this.resposta41 = this.resposta41 == null ? null : this.resposta41;
+        this.resposta47 = this.resposta47 == null ? null : this.resposta47;
+        this.resposta63 = this.resposta63 == null ? null : this.resposta63;
+        // Preencher respostas manuais
+        this.resposta02 = manualFields[2].trim();
+        this.resposta03 = manualFields[4].trim();
+        this.resposta05 = manualFields[6].trim();
+        this.resposta06 = manualFields[8].trim();
+        this.resposta08 = manualFields[10].trim();
+        this.resposta10 = manualFields[12].trim();
+        this.resposta14 = manualFields[14].trim();
+        this.resposta15 = manualFields[16].trim();
+        this.resposta16 = manualFields[18].trim();
+        this.resposta18 = manualFields[20].trim();
+        this.resposta19 = manualFields[22].trim();
+        this.resposta23 = manualFields[24].trim();
+        this.resposta27 = manualFields[26].trim();
+        this.resposta30 = manualFields[28].trim();
+        this.resposta31 = manualFields[30].trim();
+        this.resposta32 = manualFields[32].trim();
+        this.resposta33 = manualFields[34].trim();
+        this.resposta34 = manualFields[36].trim();
+        this.resposta38 = manualFields[38].trim();
+        this.resposta39 = manualFields[40].trim();
+        this.resposta40 = manualFields[42].trim();
+        this.resposta41 = manualFields[44].trim();
+        this.resposta47 = manualFields[46].trim();
+        this.resposta63 = manualFields[48].trim();
+    }
     
     private String nomeEmpresa;
     private String resposta02;  // Receita líquida
@@ -357,31 +415,31 @@ public class CompanyResponse {
      * @return String com nomes das colunas
      */
     public static String csvHeader() {
-        return "Nome_Empresa;" +
-               "Resposta_02_RAG;Resposta_02_Manual;" +
-               "Resposta_03_RAG;Resposta_03_Manual;" +
-               "Resposta_05_RAG;Resposta_05_Manual;" +
-               "Resposta_06_RAG;Resposta_06_Manual;" +
-               "Resposta_08_RAG;Resposta_08_Manual;" +
-               "Resposta_10_RAG;Resposta_10_Manual;" +
-               "Resposta_14_RAG;Resposta_14_Manual;" +
-               "Resposta_15_RAG;Resposta_15_Manual;" +
-               "Resposta_16_RAG;Resposta_16_Manual;" +
-               "Resposta_18_RAG;Resposta_18_Manual;" +
-               "Resposta_19_RAG;Resposta_19_Manual;" +
-               "Resposta_23_RAG;Resposta_23_Manual;" +
-               "Resposta_27_RAG;Resposta_27_Manual;" +
-               "Resposta_30_RAG;Resposta_30_Manual;" +
-               "Resposta_31_RAG;Resposta_31_Manual;" +
-               "Resposta_32_RAG;Resposta_32_Manual;" +
-               "Resposta_33_RAG;Resposta_33_Manual;" +
-               "Resposta_34_RAG;Resposta_34_Manual;" +
-               "Resposta_38_RAG;Resposta_38_Manual;" +
-               "Resposta_39_RAG;Resposta_39_Manual;" +
-               "Resposta_40_RAG;Resposta_40_Manual;" +
-               "Resposta_41_RAG;Resposta_41_Manual;" +
-               "Resposta_47_RAG;Resposta_47_Manual;" +
-               "Resposta_63_RAG;Resposta_63_Manual";
+     return "Empresa;" +
+         "Q2 - Receita Líquida;Q2 - Manual;" +
+         "Q3 - Lucro Líquido;Q3 - Manual;" +
+         "Q5 - Empresa Auditoria;Q5 - Manual;" +
+         "Q6 - Gastos Auditoria;Q6 - Manual;" +
+         "Q8 - Gastos Auditoria Adicionais;Q8 - Manual;" +
+         "Q10 - Possui Política de Riscos;Q10 - Manual;" +
+         "Q14 - Divulga Auditoria Interna;Q14 - Manual;" +
+         "Q15 - Controles Internos Adequados;Q15 - Manual;" +
+         "Q16 - Deficiências Auditoria;Q16 - Manual;" +
+         "Q18 - Divulgação ASG;Q18 - Manual;" +
+         "Q19 - Conselho Fiscal Instalado;Q19 - Manual;" +
+         "Q23 - Qtd Comitês CA;Q23 - Manual;" +
+         "Q27 - Possui Regras de Conflitos;Q27 - Manual;" +
+         "Q30 - Qtd Membros CA;Q30 - Manual;" +
+         "Q31 - Qtd Mulheres CA;Q31 - Manual;" +
+         "Q32 - Qtd Conselheiros Externos;Q32 - Manual;" +
+         "Q33 - Qtd Conselheiros Independentes;Q33 - Manual;" +
+         "Q34 - Qtd Conselheiros Executivos;Q34 - Manual;" +
+         "Q38 - Qtd Membros Comitê Auditoria;Q38 - Manual;" +
+         "Q39 - Qtd Membros Comitê Auditoria são Conselheiros;Q39 - Manual;" +
+         "Q40 - Qtd Membros Comitê são Conselheiros Independentes;Q40 - Manual;" +
+         "Q41 - Comitê Coordenado por Independente;Q41 - Manual;" +
+         "Q47 - Contrata Seguro D&O;Q47 - Manual;" +
+         "Q63 - Identificou Casos de Desvios/Fraudes;Q63 - Manual";
     }
     
     @Override

@@ -15,12 +15,13 @@ public class Question {
     private String comoPreencher;
     private String observacoes;
     private TipoQuestao tipo;
+    private String palavrasChaveRag;
     
     public Question() {
     }
     
     public Question(int numero, String dificuldade, String questao, 
-                    String onde, String comoPreencher, String observacoes, TipoQuestao tipo) {
+                    String onde, String comoPreencher, String observacoes, TipoQuestao tipo, String palavrasChaveRag) {
         this.numero = numero;
         this.dificuldade = dificuldade;
         this.questao = questao;
@@ -28,6 +29,15 @@ public class Question {
         this.comoPreencher = comoPreencher;
         this.observacoes = observacoes;
         this.tipo = tipo;
+        this.palavrasChaveRag = palavrasChaveRag;
+    }
+
+    public String getPalavrasChaveRag() {
+        return palavrasChaveRag;
+    }
+
+    public void setPalavrasChaveRag(String palavrasChaveRag) {
+        this.palavrasChaveRag = palavrasChaveRag;
     }
     
     // Getters e Setters
